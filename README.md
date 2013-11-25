@@ -46,7 +46,7 @@ Canvas at top, console at bottom.
         split: 0.6
     });
 
-#### 'hl.canvasAndTabs(hk, options)'
+#### `hl.canvasAndTabs(hk, options)`
 
 Canvas at top, array of tabs at bottom.
 
