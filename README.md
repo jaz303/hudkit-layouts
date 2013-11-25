@@ -28,6 +28,8 @@ All functions return an object that collects all created widgets.
         split: 0.5
     });
 
+![v2](https://raw.github.com/jaz303/hudkit-layouts/master/v2.png)
+
 #### `hl.h2(hk, options)`
 
 2-way horizontal split.
@@ -38,6 +40,8 @@ All functions return an object that collects all created widgets.
         split: 0.7
     });
 
+![h2](https://raw.github.com/jaz303/hudkit-layouts/master/h2.png)
+
 #### `hl.canvasAndConsole(hk, options)`
 
 Canvas at top, console at bottom.
@@ -45,6 +49,8 @@ Canvas at top, console at bottom.
     hl.canvasAndConsole(hk, {
         split: 0.6
     });
+
+![canvas-and-console](https://raw.github.com/jaz303/hudkit-layouts/master/canvasAndConsole.png)
 
 #### `hl.canvasAndTabs(hk, options)`
 
@@ -56,3 +62,5 @@ Canvas at top, array of tabs at bottom.
             {widget: 'Console', id: 'logger'}
         ]
     });
+
+![canvas-and-tabs](https://raw.github.com/jaz303/hudkit-layouts/master/canvasAndTabs.png)
