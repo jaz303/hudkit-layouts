@@ -148,10 +148,42 @@ exports.canvasAndTabs = function(hk, options) {
 }
 
 },{}],3:[function(require,module,exports){
-var hk = require('hudkit-core');
+var fs          = require('fs'),
+    signals     = require('./lib/signals'),
+    constants   = require('./lib/constants'),
+    theme       = require('./lib/theme'),
+    Instance    = require('./lib/Instance'),
+    Context     = require('./lib/Context'),
+    registry    = require('./lib/registry');
 
-var fs = require('fs');
+var hk = module.exports = {
+    register    : registry.registerModule,
+    init        : init,
+    instance    : function(doc) { return new Instance(doc); }
+};
 
+var initialized = false;
+
+signals.moduleRegistered.connect(function(mod) {
+    if (initialized) {
+        initializeModule(mod);
+    }
+});
+
+function initializeModule(mod) {
+    mod.initialize(Context, constants, theme);
+}
+
+function init() {
+    if (initialized) {
+        return;
+    }
+    registry.modules().forEach(initializeModule);
+    initialized = true;
+}
+
+hk.register(require('./lib/Widget'));
+hk.register(require('./lib/RootPane'));
 hk.register(require('./lib/Box'));
 hk.register(require('./lib/SplitPane'));
 hk.register(require('./lib/MultiSplitPane'));
@@ -164,9 +196,7 @@ hk.register(require('./lib/ButtonBar'));
 hk.register(require('./lib/TabPane'));
 hk.register(require('./lib/Toolbar'));
 hk.register(require('./lib/StatusBar'));
-
-module.exports = hk;
-},{"./lib/Box":4,"./lib/Button":5,"./lib/ButtonBar":6,"./lib/Canvas2D":7,"./lib/Console":8,"./lib/Container":9,"./lib/MultiSplitPane":10,"./lib/Panel":11,"./lib/SplitPane":12,"./lib/StatusBar":13,"./lib/TabPane":14,"./lib/Toolbar":15,"fs":33,"hudkit-core":17}],4:[function(require,module,exports){
+},{"./lib/Box":4,"./lib/Button":5,"./lib/ButtonBar":6,"./lib/Canvas2D":7,"./lib/Console":8,"./lib/Container":9,"./lib/Context":10,"./lib/Instance":11,"./lib/MultiSplitPane":12,"./lib/Panel":13,"./lib/RootPane":14,"./lib/SplitPane":15,"./lib/StatusBar":16,"./lib/TabPane":17,"./lib/Toolbar":18,"./lib/Widget":19,"./lib/constants":20,"./lib/registry":21,"./lib/signals":22,"./lib/theme":23,"fs":33}],4:[function(require,module,exports){
 exports.initialize = function(ctx, k, theme) {
 
     ctx.registerWidget('Box', ctx.Widget.extend(function(_sc, _sm) {
@@ -306,7 +336,7 @@ exports.attach = function(instance) {
     instance.appendCSS(CSS);
 }
 }).call(this,"/../node_modules/hudkit/lib/Button")
-},{"domutil":16,"fs":33}],6:[function(require,module,exports){
+},{"domutil":27,"fs":33}],6:[function(require,module,exports){
 (function (__dirname){exports.initialize = function(ctx, k, theme) {
 
     ctx.registerWidget('ButtonBar', ctx.Widget.extend(function(_sc, _sm) {
@@ -715,7 +745,7 @@ exports.attach = function(instance) {
 	instance.appendCSS(CSS);
 }
 }).call(this,"/../node_modules/hudkit/lib/Console")
-},{"domutil":16,"fs":33}],9:[function(require,module,exports){
+},{"domutil":27,"fs":33}],9:[function(require,module,exports){
 exports.initialize = function(ctx, k, theme) {
 
 	ctx.registerWidget('Container', ctx.Widget.extend(function(_sc, _sm) {
@@ -839,6 +869,106 @@ exports.attach = function(instance) {
 };
 
 },{}],10:[function(require,module,exports){
+var registry 	= require('./registry'),
+	signals		= require('./signals'),
+	constants 	= require('./constants');
+
+// Context object is passed to each registered module's initialize()
+// function, allowing them to access select registry methods and 
+// all previously registered widgets.
+var Context = module.exports = {
+	
+	registerWidget  : registry.registerWidget,
+	
+	defineConstant: function(name, value) {
+		Object.defineProperty(constants, name, {
+			enumerable	: true,
+			writable	: false,
+			value		: value
+		});
+	},
+
+	defineConstants: function(constants) {
+		for (var k in constants) {
+			this.defineConstant(k, constants[k]);
+		}
+	}
+
+};
+
+signals.widgetRegistered.connect(function(name, ctor) {
+	Context[name] = ctor;
+});
+},{"./constants":20,"./registry":21,"./signals":22}],11:[function(require,module,exports){
+(function (__dirname){var fs 			= require('fs'),
+	styleTag 	= require('style-tag'),
+    action      = require('hudkit-action'),
+	registry 	= require('./registry'),
+	signals 	= require('./signals'),
+	theme 		= require('./theme'),
+	constants	= require('./constants'),
+    slice       = Array.prototype.slice;
+
+module.exports = Instance;
+
+var RESET_CSS   = "/* http://meyerweb.com/eric/tools/css/reset/ \n   v2.0 | 20110126\n   License: none (public domain)\n*/\n\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed, \nfigure, figcaption, footer, header, hgroup, \nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n\tmargin: 0;\n\tpadding: 0;\n\tborder: 0;\n\tfont-size: 100%;\n\tfont: inherit;\n\tvertical-align: baseline;\n}\n/* HTML5 display-role reset for older browsers */\narticle, aside, details, figcaption, figure, \nfooter, header, hgroup, menu, nav, section {\n\tdisplay: block;\n}\nbody {\n\tline-height: 1;\n}\nol, ul {\n\tlist-style: none;\n}\nblockquote, q {\n\tquotes: none;\n}\nblockquote:before, blockquote:after,\nq:before, q:after {\n\tcontent: '';\n\tcontent: none;\n}\ntable {\n\tborder-collapse: collapse;\n\tborder-spacing: 0;\n}",
+    BASE_CSS    = ".hk-root {\n\t-webkit-user-select: none;\n\tcursor: default;\n\tbackground: #101010;\n\tfont: 12px $HK_CONTROL_FONT;\n}\n\n.hk-root a {\n\ttext-decoration: none;\n}\n\n.hk-root * {\n\t-webkit-user-select: none;\n\tcursor: default;\n}\n\n.hk-button-common {\n\tfont: $HK_CONTROL_FONT_SIZE $HK_CONTROL_FONT;\n\tbackground: $HK_BUTTON_BG_COLOR;\n\tcolor: $HK_TEXT_COLOR;\n}\n\n.hk-button-common.disabled {\n\tcolor: #d0d0d0;\n}\n\n.hk-button-common:not(.disabled):active {\n\tbackground: $HK_CONTROL_ACTIVE_BG_COLOR;\n}";
+
+function Instance(window) {
+
+    this.window = window;
+    this.document = window.document;
+    
+    this.appendCSS(RESET_CSS);
+    this.appendCSS(BASE_CSS);
+
+    registry.modules().forEach(function(mod) {
+    	mod.attach(this);
+    }, this);
+
+    this.root = this.rootPane();
+
+    var body = this.document.body;
+    body.className = 'hk';
+    body.appendChild(this.root.getRoot());
+
+}
+
+Instance.prototype.constants = Instance.prototype.k = constants;
+Instance.prototype.action = action;
+
+Instance.prototype.appendCSS = function(css) {
+
+    css = css.replace(/\$(\w+)/g, function(m) {
+        return theme.get(RegExp.$1);
+    });
+
+    return styleTag(this.document, css);
+
+}
+
+// when widget is registered make it available to all hudkit instances
+signals.widgetRegistered.connect(function(name, ctor) {
+
+    var method = name[0].toLowerCase() + name.substring(1);
+
+    Instance.prototype[method] = function(a, b, c, d, e, f, g, h) {
+        switch (arguments.length) {
+            case 0: return new ctor(this);
+            case 1: return new ctor(this, a);
+            case 2: return new ctor(this, a, b);
+            case 3: return new ctor(this, a, b, c);
+            case 4: return new ctor(this, a, b, c, d);
+            case 5: return new ctor(this, a, b, c, d, e);
+            case 6: return new ctor(this, a, b, c, d, e, f);
+            case 7: return new ctor(this, a, b, c, d, e, f, g);
+            case 8: return new ctor(this, a, b, c, d, e, f, g, h);
+            default: throw new Error("too many ctor arguments. sorry :(");
+        }
+    }
+
+});}).call(this,"/../node_modules/hudkit/lib")
+},{"./constants":20,"./registry":21,"./signals":22,"./theme":23,"fs":33,"hudkit-action":28,"style-tag":31}],12:[function(require,module,exports){
 var du      = require('domutil'),
     rattrap = require('rattrap'),
     signal  = require('signalkit');
@@ -1170,7 +1300,7 @@ exports.initialize = function(ctx, k, theme) {
 exports.attach = function(instance) {
 
 }
-},{"domutil":16,"rattrap":31,"signalkit":32}],11:[function(require,module,exports){
+},{"domutil":27,"rattrap":29,"signalkit":30}],13:[function(require,module,exports){
 exports.initialize = function(ctx, k, theme) {
 
 	ctx.registerWidget('Panel', ctx.Container.extend(function(_sc, _sm) {
@@ -1198,7 +1328,185 @@ exports.attach = function(instance) {
 
 };
 
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
+(function (__dirname){var fs      = require('fs'),
+    trbl    = require('trbl');
+
+var DEFAULT_PADDING = 8;
+
+exports.initialize = function(ctx, k, theme) {
+
+    ctx.registerWidget('RootPane', ctx.Widget.extend(function(_sc, _sm) {
+
+        return [
+
+            function() {
+
+                this._padding           = [DEFAULT_PADDING, DEFAULT_PADDING, DEFAULT_PADDING, DEFAULT_PADDING];
+                this._toolbarVisible    = true;
+                this._toolbar           = null;
+                this._rootWidget        = null;
+                this._resizeDelay       = 500;
+
+                _sc.apply(this, arguments);
+
+                this._setupResizeHandler();
+
+            },
+
+            'methods', {
+
+                dispose: function() {
+                    this.setToolbar(null);
+                    this.setRootWidget(null);
+                    _sm.dispose.call(this);
+                },
+
+                setPadding: function(padding) {
+                    this._padding = trbl(padding);
+                    this._layout();
+                },
+
+                setBackgroundColor: function(color) {
+                    this._root.style.backgroundColor = color;
+                },
+
+                setToolbar: function(widget) {
+
+                    if (widget === this._toolbar)
+                        return;
+
+                    if (this._toolbar) {
+                        this._removeChildViaElement(this._toolbar, this._root);
+                        this._toolbar = null;
+                    }
+
+                    if (widget) {
+                        this._toolbar = widget;
+                        this._attachChildViaElement(this._toolbar, this._root);
+                    }
+
+                    this._layout();
+
+                },
+
+                showToolbar: function() {
+                    this._toolbarVisible = true;
+                    this._layout();
+                },
+                
+                hideToolbar: function() {
+                    this._toolbarVisible = false;
+                    this._layout();
+                },
+                
+                toggleToolbar: function() {
+                    this._toolbarVisible = !this._toolbarVisible;
+                    this._layout();
+                },
+                
+                isToolbarVisible: function() {
+                    return this._toolbarVisible;
+                },
+
+                setRootWidget: function(widget) {
+
+                    if (widget === this._rootWidget)
+                        return;
+
+                    if (this._rootWidget) {
+                        this._removeChildViaElement(this._rootWidget, this._root);
+                        this._rootWidget = null;
+                    }
+
+                    if (widget) {
+                        this._rootWidget = widget;
+                        this._attachChildViaElement(this._rootWidget, this._root);
+                    }
+
+                    this._layout();
+
+                },
+
+                setBounds: function(x, y, width, height) {
+                    /* no-op; root widget always fills its containing DOM element */
+                },
+
+                setResizeDelay: function(delay) {
+                    this._resizeDelay = parseInt(delay, 10);
+                },
+
+                _buildStructure: function() {
+                    this._root = this.document.createElement('div');
+                    this._root.className = 'hk-root-pane';
+                },
+
+                _layout: function() {
+                    
+                    var rect        = this._root.getBoundingClientRect(),
+                        left        = this._padding[3],
+                        top         = this._padding[0],
+                        width       = rect.width - (this._padding[1] + this._padding[3]),
+                        rootTop     = top,
+                        rootHeight  = rect.height - (this._padding[0] + this._padding[2]);
+                    
+                    if (this._toolbar && this._toolbarVisible) {
+                        
+                        this._toolbar.setHidden(false);
+                        this._toolbar.setBounds(left,
+                                                top,
+                                                width,
+                                                theme.getInt('HK_TOOLBAR_HEIGHT'));
+                        
+                        var delta = theme.getInt('HK_TOOLBAR_HEIGHT') + theme.getInt('HK_TOOLBAR_MARGIN_BOTTOM');
+                        rootTop += delta;
+                        rootHeight -= delta;
+                    
+                    } else if (this._toolbar) {
+                        this._toolbar.setHidden(true);
+                    }
+                    
+                    if (this._rootWidget) {
+                        this._rootWidget.setBounds(left, rootTop, width, rootHeight);
+                    }
+                    
+                },
+
+                _setupResizeHandler: function() {
+
+                    var self    = this,
+                        timeout = null;
+
+                    // FIXME: stash this registration for later unbinding
+                    // isn't this what basecamp is for?
+                    this.window.addEventListener('resize', function() {
+                        if (self._resizeDelay <= 0) {
+                            self._layout();    
+                        } else {
+                            if (timeout) {
+                                self._clearTimeout(timeout);
+                            }
+                            timeout = self._setTimeout(function() {
+                                self._layout();
+                            }, self._resizeDelay);
+                        }
+                    });
+
+                }
+
+            }
+
+        ];
+
+    }));
+
+}
+
+exports.attach = function(instance) {
+    instance.appendCSS(".hk-root-pane {\n\ttop: 0;\n\tleft: 0;\n\tright: 0;\n\tbottom: 0;\n\toverflow: hidden;\n\tbackground-color: $HK_ROOT_BG_COLOR;\n}");
+}
+}).call(this,"/../node_modules/hudkit/lib/RootPane")
+},{"fs":33,"trbl":32}],15:[function(require,module,exports){
 (function (__dirname){var du      = require('domutil'),
     rattrap = require('rattrap');
 
@@ -1452,7 +1760,7 @@ var fs = require('fs'),
 exports.attach = function(instance) {
 	instance.appendCSS(css);
 }}).call(this,"/../node_modules/hudkit/lib/SplitPane")
-},{"domutil":16,"fs":33,"rattrap":31}],13:[function(require,module,exports){
+},{"domutil":27,"fs":33,"rattrap":29}],16:[function(require,module,exports){
 (function (__dirname){var du = require('domutil');
 
 function TextCell(doc) {
@@ -1544,7 +1852,7 @@ exports.attach = function(instance) {
     instance.appendCSS(CSS);
 }
 }).call(this,"/../node_modules/hudkit/lib/StatusBar")
-},{"domutil":16,"fs":33}],14:[function(require,module,exports){
+},{"domutil":27,"fs":33}],17:[function(require,module,exports){
 (function (__dirname){var du = require('domutil');
 
 exports.initialize = function(ctx, k, theme) {
@@ -1708,7 +2016,7 @@ exports.initialize = function(ctx, k, theme) {
 		            
 		            this._canvas = this.document.createElement('canvas');
 		            this._canvas.className = 'hk-tab-canvas';
-		            this._canvas.height = theme.TAB_SPACING * 2;
+		            this._canvas.height = theme.getInt('HK_TAB_SPACING') * 2;
 		            this._ctx = this._canvas.getContext('2d');
 		            
 		            this._root.appendChild(this._canvas);
@@ -1735,12 +2043,17 @@ exports.initialize = function(ctx, k, theme) {
 		        
 		        _redraw: function() {
 		            var self = this;
-		            
+
+		            var tabSpacing 	= theme.getInt('HK_TAB_SPACING'),
+		            	tabHeight 	= theme.getInt('HK_TAB_HEIGHT'),
+		            	tabRadius 	= theme.getInt('HK_TAB_BORDER_RADIUS'),
+		            	bgColor 	= theme.get('HK_TAB_BACKGROUND_COLOR');
+
 		            this._tabs.forEach(function(tab, i) {
-		                tab.pane.setBounds(theme.TAB_SPACING,
-		                                   theme.TAB_SPACING,
-		                                   self.width - (2 * theme.TAB_SPACING),
-		                                   self.height - (3 * theme.TAB_SPACING + theme.TAB_HEIGHT));
+		                tab.pane.setBounds(tabSpacing,
+		                                   tabSpacing,
+		                                   self.width - (2 * tabSpacing),
+		                                   self.height - (3 * tabSpacing + tabHeight));
 		                                                     
 		                if (tab.active) {
 		                    var width       = tab.ele.offsetWidth,
@@ -1749,37 +2062,37 @@ exports.initialize = function(ctx, k, theme) {
 		                            top     = tab.ele.offsetTop,
 		                            ctx     = self._ctx;
 
-		                    width += theme.TAB_BORDER_RADIUS;
+		                    width += tabRadius;
 
 		                    if (i > 0) {
-		                        left -= theme.TAB_BORDER_RADIUS;
-		                        width += theme.TAB_BORDER_RADIUS;
+		                        left -= tabRadius;
+		                        width += tabRadius;
 		                    }
 
 		                    self._canvas.style.left = '' + left + 'px';
 		                    self._canvas.style.top = '' + (top + height) + 'px';
 		                    self._canvas.width = width;
 		                    
-		                    ctx.fillStyle = theme.TAB_BACKGROUND_COLOR;
+		                    ctx.fillStyle = bgColor;
 
-		                    var arcY = theme.TAB_SPACING - theme.TAB_BORDER_RADIUS;
+		                    var arcY = tabSpacing - tabRadius;
 
 		                    if (i == 0) {
-		                        ctx.fillRect(0, 0, width - theme.TAB_BORDER_RADIUS, self._canvas.height);
+		                        ctx.fillRect(0, 0, width - tabRadius, self._canvas.height);
 		                        ctx.beginPath();
-		                        ctx.arc(width, arcY, theme.TAB_BORDER_RADIUS, Math.PI, Math.PI / 2, true);
-		                        ctx.lineTo(width - theme.TAB_BORDER_RADIUS, theme.TAB_SPACING);
-		                        ctx.lineTo(width - theme.TAB_BORDER_RADIUS, 0);
+		                        ctx.arc(width, arcY, tabRadius, Math.PI, Math.PI / 2, true);
+		                        ctx.lineTo(width - tabRadius, tabSpacing);
+		                        ctx.lineTo(width - tabRadius, 0);
 		                        ctx.fill();
 		                    } else {
 		                        ctx.beginPath();
-		                        ctx.moveTo(theme.TAB_BORDER_RADIUS, 0);
-		                        ctx.lineTo(theme.TAB_BORDER_RADIUS, arcY);
-		                        ctx.arc(0, arcY, theme.TAB_BORDER_RADIUS, 0, Math.PI / 2, false);
-		                        ctx.lineTo(width, theme.TAB_SPACING);
-		                        ctx.arc(width, arcY, theme.TAB_BORDER_RADIUS, Math.PI / 2, Math.PI, false);
-		                        ctx.lineTo(width - theme.TAB_BORDER_RADIUS, 0);
-		                        ctx.lineTo(theme.TAB_BORDER_RADIUS, 0);
+		                        ctx.moveTo(tabRadius, 0);
+		                        ctx.lineTo(tabRadius, arcY);
+		                        ctx.arc(0, arcY, tabRadius, 0, Math.PI / 2, false);
+		                        ctx.lineTo(width, tabSpacing);
+		                        ctx.arc(width, arcY, tabRadius, Math.PI / 2, Math.PI, false);
+		                        ctx.lineTo(width - tabRadius, 0);
+		                        ctx.lineTo(tabRadius, 0);
 		                        ctx.fill();
 		                    }
 		                }
@@ -1795,12 +2108,12 @@ exports.initialize = function(ctx, k, theme) {
 }
 
 var fs = require('fs'),
-    CSS = ".hk-tab-pane .hk-tab-bar {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: $HK_TAB_HEIGHT;\n}\n\n.hk-tab-pane .hk-tab-bar > a {\n\n  /* control-font mixin */\n  font: $HK_CONTROL_FONT_SIZE $HK_CONTROL_FONT;\n  line-height: 1;\n\n  background: $HK_TAB_BACKGROUND_COLOR;\n  display: block;\n  float: left;\n  margin-right: $HK_TAB_SPACING;\n  color: $HK_TEXT_COLOR;\n  text-decoration: none;\n  font-weight: bold;\n  padding: $HK_TAB_PADDING;\n  border-radius: $HK_TAB_BORDER_RADIUS;\n  min-width: 30px;\n  text-align: center; \n  \n}\n\n.hk-tab-pane .hk-tab-bar > a.active {\n  border-bottom-left-radius: 0;\n  border-bottom-right-radius: 0;\n}\n\n.hk-tab-pane .hk-tab-container {\n  position: absolute;\n  top: $HK_TAB_HEIGHT + $HK_TAB_SPACING;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  background: $HK_TAB_BACKGROUND_COLOR;\n  border-radius: 8px;\n}\n\n.hk-tab-pane .hk-tab-canvas {\n  position: absolute;\n}\n";
+    CSS = ".hk-tab-pane .hk-tab-bar {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: $HK_TAB_HEIGHT;\n}\n\n.hk-tab-pane .hk-tab-bar > a {\n\n  /* control-font mixin */\n  font: $HK_CONTROL_FONT_SIZE $HK_CONTROL_FONT;\n  line-height: 1;\n\n  background: $HK_TAB_BACKGROUND_COLOR;\n  display: block;\n  float: left;\n  margin-right: $HK_TAB_SPACING;\n  color: $HK_TEXT_COLOR;\n  text-decoration: none;\n  font-weight: bold;\n  padding: $HK_TAB_PADDING;\n  border-radius: $HK_TAB_BORDER_RADIUS;\n  min-width: 30px;\n  text-align: center; \n  \n}\n\n.hk-tab-pane .hk-tab-bar > a.active {\n  border-bottom-left-radius: 0;\n  border-bottom-right-radius: 0;\n}\n\n.hk-tab-pane .hk-tab-container {\n  position: absolute;\n  top: $HK_TAB_CONTAINER_TOP;\n  right: 0;\n  bottom: 0;\n  left: 0;\n  background: $HK_TAB_BACKGROUND_COLOR;\n  border-radius: 8px;\n}\n\n.hk-tab-pane .hk-tab-canvas {\n  position: absolute;\n}\n";
 
 exports.attach = function(instance) {
 	instance.appendCSS(CSS);
 }}).call(this,"/../node_modules/hudkit/lib/TabPane")
-},{"domutil":16,"fs":33}],15:[function(require,module,exports){
+},{"domutil":27,"fs":33}],18:[function(require,module,exports){
 (function (__dirname){var du = require('domutil');
 
 exports.initialize = function(ctx, k, theme) {
@@ -1884,447 +2197,7 @@ var fs = require('fs'),
 exports.attach = function(instance) {
 	instance.appendCSS(CSS);
 }}).call(this,"/../node_modules/hudkit/lib/Toolbar")
-},{"domutil":16,"fs":33}],16:[function(require,module,exports){
-// Constants from jQuery
-var rclass = /[\t\r\n]/g;
-var core_rnotwhite = /\S+/g;
-
-var DataStore         = {},
-    kDataStoreNextIx  = 1,
-    kDataKey          = 'du-data-key';
-
-var __window = typeof window === 'undefined'
-                ? null
-                : window;
-
-var __document = typeof document === 'undefined'
-                  ? null
-                  : document;
-
-function generateElementKey() {
-  return kDataStoreNextIx++;
-}
-
-module.exports = {
-  init: function(window, document) {
-    __window = window;
-    __document = document;
-  },
-
-  data: function(el, key, val) {
-    var elementKey = el.getAttribute(kDataKey);
-    if (!elementKey) {
-      elementKey = generateElementKey();
-      el.setAttribute(kDataKey, elementKey);
-    }
-
-    var elementData = DataStore[elementKey];
-    
-    if (arguments.length === 2) {
-      if (typeof key === 'undefined') {
-        delete DataStore[elementKey];
-      } else {
-        return elementData ? elementData[key] : undefined;
-      }
-    } else if (arguments.length === 3) {
-      if (typeof val === 'undefined') {
-        if (elementData) {
-          delete elementData[key];
-        }
-      } else {
-        if (!elementData) {
-          elementData = {};
-          DataStore[elementKey] = elementData;
-        }
-        elementData[key] = val;
-      }
-    } else {
-      throw "data() - invalid arguments";
-    }
-  },
-
-  // from jQuery
-  hasClass: function(ele, className) {
-    className = " " + className + " ";
-    return (" " + ele.className + " ").replace(rclass, " ").indexOf(className) >= 0;
-  },
-
-  // from jQuery
-  addClass: function(ele, value) {
-    var classes = (value || "").match(core_rnotwhite) || [],
-        cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
-
-    if (cur) {
-      var j = 0, clazz;
-      while ((clazz = classes[j++])) {
-        if (cur.indexOf(" " + clazz + " ") < 0) {
-          cur += clazz + " ";
-        }
-      }
-      ele.className = cur.trim();
-    }
-  },
-
-  // from jQuery
-  removeClass: function(ele, value) {
-    var classes = (value || "").match(core_rnotwhite) || [],
-        cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
-
-    if (cur) {
-      var j = 0, clazz;
-      while ((clazz = classes[j++])) {
-        while (cur.indexOf(" " + clazz + " ") >= 0) {
-          cur = cur.replace(" " + clazz + " ", " ");
-        }
-        ele.className = value ? cur.trim() : "";
-      }
-
-    }
-  },
-
-  viewportSize: function() {
-    return {
-      width: __document.documentElement.clientWidth,
-      height: __document.documentElement.clientHeight
-    };
-  },
-
-  stop: function(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-  },
-
-  setPosition: function(el, x, y) {
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-  },
-
-  setSize: function(width, height) {
-    el.style.width = width + 'px';
-    el.style.height = height + 'px';
-  },
-
-  isElement: function(el) {
-    return el && el.nodeType === 1;
-  }
-};
-},{}],17:[function(require,module,exports){
-var fs          = require('fs'),
-    signals     = require('./lib/signals'),
-    constants   = require('./lib/constants'),
-    theme       = require('./lib/theme'),
-    Instance    = require('./lib/Instance'),
-    Context     = require('./lib/Context'),
-    registry    = require('./lib/registry');
-
-var hk = module.exports = {
-    register    : registry.registerModule,
-    init        : init,
-    instance    : function(doc) { return new Instance(doc); }
-};
-
-var initialized = false;
-
-signals.moduleRegistered.connect(function(mod) {
-    if (initialized) {
-        initializeModule(mod);
-    }
-});
-
-function initializeModule(mod) {
-    mod.initialize(Context, constants, theme);
-}
-
-function init() {
-    if (initialized) {
-        return;
-    }
-    registry.modules().forEach(initializeModule);
-    initialized = true;
-}
-
-hk.register(require('./lib/Widget'));
-hk.register(require('./lib/RootPane'));
-
-},{"./lib/Context":18,"./lib/Instance":19,"./lib/RootPane":20,"./lib/Widget":21,"./lib/constants":22,"./lib/registry":23,"./lib/signals":24,"./lib/theme":25,"fs":33}],18:[function(require,module,exports){
-var registry 	= require('./registry'),
-	signals		= require('./signals'),
-	constants 	= require('./constants');
-
-// Context object is passed to each registered module's initialize()
-// function, allowing them to access select registry methods and 
-// all previously registered widgets.
-var Context = module.exports = {
-	
-	registerWidget  : registry.registerWidget,
-	
-	defineConstant: function(name, value) {
-		Object.defineProperty(constants, name, {
-			enumerable	: true,
-			writable	: false,
-			value		: value
-		});
-	},
-
-	defineConstants: function(constants) {
-		for (var k in constants) {
-			this.defineConstant(k, constants[k]);
-		}
-	}
-
-};
-
-signals.widgetRegistered.connect(function(name, ctor) {
-	Context[name] = ctor;
-});
-},{"./constants":22,"./registry":23,"./signals":24}],19:[function(require,module,exports){
-(function (__dirname){var fs 			= require('fs'),
-	styleTag 	= require('style-tag'),
-    action      = require('hudkit-action'),
-	registry 	= require('./registry'),
-	signals 	= require('./signals'),
-	theme 		= require('./theme'),
-	constants	= require('./constants'),
-    slice       = Array.prototype.slice;
-
-module.exports = Instance;
-
-var RESET_CSS   = "/* http://meyerweb.com/eric/tools/css/reset/ \n   v2.0 | 20110126\n   License: none (public domain)\n*/\n\nhtml, body, div, span, applet, object, iframe,\nh1, h2, h3, h4, h5, h6, p, blockquote, pre,\na, abbr, acronym, address, big, cite, code,\ndel, dfn, em, img, ins, kbd, q, s, samp,\nsmall, strike, strong, sub, sup, tt, var,\nb, u, i, center,\ndl, dt, dd, ol, ul, li,\nfieldset, form, label, legend,\ntable, caption, tbody, tfoot, thead, tr, th, td,\narticle, aside, canvas, details, embed, \nfigure, figcaption, footer, header, hgroup, \nmenu, nav, output, ruby, section, summary,\ntime, mark, audio, video {\n\tmargin: 0;\n\tpadding: 0;\n\tborder: 0;\n\tfont-size: 100%;\n\tfont: inherit;\n\tvertical-align: baseline;\n}\n/* HTML5 display-role reset for older browsers */\narticle, aside, details, figcaption, figure, \nfooter, header, hgroup, menu, nav, section {\n\tdisplay: block;\n}\nbody {\n\tline-height: 1;\n}\nol, ul {\n\tlist-style: none;\n}\nblockquote, q {\n\tquotes: none;\n}\nblockquote:before, blockquote:after,\nq:before, q:after {\n\tcontent: '';\n\tcontent: none;\n}\ntable {\n\tborder-collapse: collapse;\n\tborder-spacing: 0;\n}",
-    BASE_CSS    = ".hk-root {\n\t-webkit-user-select: none;\n\tcursor: default;\n\tbackground: #101010;\n\tfont: 12px $HK_CONTROL_FONT;\n}\n\n.hk-root a {\n\ttext-decoration: none;\n}\n\n.hk-root * {\n\t-webkit-user-select: none;\n\tcursor: default;\n}\n\n.hk-button-common {\n\tfont: $HK_CONTROL_FONT_SIZE $HK_CONTROL_FONT;\n\tbackground: $HK_BUTTON_BG_COLOR;\n\tcolor: $HK_TEXT_COLOR;\n}\n\n.hk-button-common.disabled {\n\tcolor: #d0d0d0;\n}\n\n.hk-button-common:not(.disabled):active {\n\tbackground: $HK_CONTROL_ACTIVE_BG_COLOR;\n}";
-
-function Instance(window) {
-
-    this.window = window;
-    this.document = window.document;
-    
-    this.appendCSS(RESET_CSS);
-    this.appendCSS(BASE_CSS);
-
-    registry.modules().forEach(function(mod) {
-    	mod.attach(this);
-    }, this);
-
-    this.root = this.rootPane();
-
-    var body = this.document.body;
-    body.className = 'hk';
-    body.appendChild(this.root.getRoot());
-
-}
-
-Instance.prototype.constants = Instance.prototype.k = constants;
-Instance.prototype.action = action;
-
-Instance.prototype.appendCSS = function(css) {
-
-    css = css.replace(/\$(\w+)/g, function(m) {
-        return theme.get(RegExp.$1);
-    });
-
-    return styleTag(this.document, css);
-
-}
-
-// when widget is registered make it available to all hudkit instances
-signals.widgetRegistered.connect(function(name, ctor) {
-
-    var method = name[0].toLowerCase() + name.substring(1);
-
-    Instance.prototype[method] = function(a, b, c, d, e, f, g, h) {
-        switch (arguments.length) {
-            case 0: return new ctor(this);
-            case 1: return new ctor(this, a);
-            case 2: return new ctor(this, a, b);
-            case 3: return new ctor(this, a, b, c);
-            case 4: return new ctor(this, a, b, c, d);
-            case 5: return new ctor(this, a, b, c, d, e);
-            case 6: return new ctor(this, a, b, c, d, e, f);
-            case 7: return new ctor(this, a, b, c, d, e, f, g);
-            case 8: return new ctor(this, a, b, c, d, e, f, g, h);
-            default: throw new Error("too many ctor arguments. sorry :(");
-        }
-    }
-
-});}).call(this,"/../node_modules/hudkit/node_modules/hudkit-core/lib")
-},{"./constants":22,"./registry":23,"./signals":24,"./theme":25,"fs":33,"hudkit-action":28,"style-tag":29}],20:[function(require,module,exports){
-(function (__dirname){var fs      = require('fs'),
-    trbl    = require('trbl');
-
-var DEFAULT_PADDING = 8;
-
-exports.initialize = function(ctx, k, theme) {
-
-    ctx.registerWidget('RootPane', ctx.Widget.extend(function(_sc, _sm) {
-
-        return [
-
-            function() {
-
-                this._padding           = [DEFAULT_PADDING, DEFAULT_PADDING, DEFAULT_PADDING, DEFAULT_PADDING];
-                this._toolbarVisible    = true;
-                this._toolbar           = null;
-                this._rootWidget        = null;
-                this._resizeDelay       = 500;
-
-                _sc.apply(this, arguments);
-
-                this._setupResizeHandler();
-
-            },
-
-            'methods', {
-
-                dispose: function() {
-                    this.setToolbar(null);
-                    this.setRootWidget(null);
-                    _sm.dispose.call(this);
-                },
-
-                setPadding: function(padding) {
-                    this._padding = trbl(padding);
-                    this._layout();
-                },
-
-                setBackgroundColor: function(color) {
-                    this._root.style.backgroundColor = color;
-                },
-
-                setToolbar: function(widget) {
-
-                    if (widget === this._toolbar)
-                        return;
-
-                    if (this._toolbar) {
-                        this._removeChildViaElement(this._toolbar, this._root);
-                        this._toolbar = null;
-                    }
-
-                    if (widget) {
-                        this._toolbar = widget;
-                        this._attachChildViaElement(this._toolbar, this._root);
-                    }
-
-                    this._layout();
-
-                },
-
-                showToolbar: function() {
-                    this._toolbarVisible = true;
-                    this._layout();
-                },
-                
-                hideToolbar: function() {
-                    this._toolbarVisible = false;
-                    this._layout();
-                },
-                
-                toggleToolbar: function() {
-                    this._toolbarVisible = !this._toolbarVisible;
-                    this._layout();
-                },
-                
-                isToolbarVisible: function() {
-                    return this._toolbarVisible;
-                },
-
-                setRootWidget: function(widget) {
-
-                    if (widget === this._rootWidget)
-                        return;
-
-                    if (this._rootWidget) {
-                        this._removeChildViaElement(this._rootWidget, this._root);
-                        this._rootWidget = null;
-                    }
-
-                    if (widget) {
-                        this._rootWidget = widget;
-                        this._attachChildViaElement(this._rootWidget, this._root);
-                    }
-
-                    this._layout();
-
-                },
-
-                setBounds: function(x, y, width, height) {
-                    /* no-op; root widget always fills its containing DOM element */
-                },
-
-                setResizeDelay: function(delay) {
-                    this._resizeDelay = parseInt(delay, 10);
-                },
-
-                _buildStructure: function() {
-                    this._root = this.document.createElement('div');
-                    this._root.className = 'hk-root-pane';
-                },
-
-                _layout: function() {
-                    
-                    var rect        = this._root.getBoundingClientRect(),
-                        left        = this._padding[3],
-                        top         = this._padding[0],
-                        width       = rect.width - (this._padding[1] + this._padding[3]),
-                        rootTop     = top,
-                        rootHeight  = rect.height - (this._padding[0] + this._padding[2]);
-                    
-                    if (this._toolbar && this._toolbarVisible) {
-                        
-                        this._toolbar.setHidden(false);
-                        this._toolbar.setBounds(left,
-                                                top,
-                                                width,
-                                                theme.getInt('HK_TOOLBAR_HEIGHT'));
-                        
-                        var delta = theme.getInt('HK_TOOLBAR_HEIGHT') + theme.getInt('HK_TOOLBAR_MARGIN_BOTTOM');
-                        rootTop += delta;
-                        rootHeight -= delta;
-                    
-                    } else if (this._toolbar) {
-                        this._toolbar.setHidden(true);
-                    }
-                    
-                    if (this._rootWidget) {
-                        this._rootWidget.setBounds(left, rootTop, width, rootHeight);
-                    }
-                    
-                },
-
-                _setupResizeHandler: function() {
-
-                    var self    = this,
-                        timeout = null;
-
-                    // FIXME: stash this registration for later unbinding
-                    // isn't this what basecamp is for?
-                    this.window.addEventListener('resize', function() {
-                        if (self._resizeDelay <= 0) {
-                            self._layout();    
-                        } else {
-                            if (timeout) {
-                                self._clearTimeout(timeout);
-                            }
-                            timeout = self._setTimeout(function() {
-                                self._layout();
-                            }, self._resizeDelay);
-                        }
-                    });
-
-                }
-
-            }
-
-        ];
-
-    }));
-
-}
-
-exports.attach = function(instance) {
-    instance.appendCSS(".hk-root-pane {\n\ttop: 0;\n\tleft: 0;\n\tright: 0;\n\tbottom: 0;\n\toverflow: hidden;\n\tbackground-color: $HK_ROOT_BG_COLOR;\n}");
-}
-}).call(this,"/../node_modules/hudkit/node_modules/hudkit-core/lib/RootPane")
-},{"fs":33,"trbl":30}],21:[function(require,module,exports){
+},{"domutil":27,"fs":33}],19:[function(require,module,exports){
 (function (__dirname){var fs 		= require('fs'),
 	Class   = require('classkit').Class,
 	du 		= require('domutil');
@@ -2550,10 +2423,10 @@ exports.initialize = function(ctx, k, theme) {
 exports.attach = function(instance) {
 	instance.appendCSS(".hk-widget {\n\toverflow: hidden;\n\tbox-sizing: border-box;\n\t-moz-box-sizing: border-box;\n}\n\n.hk-position-manual {\n\tposition: absolute;\n}\n\n.hk-position-auto {\n\t/* placeholder only */\n}\n");
 }
-}).call(this,"/../node_modules/hudkit/node_modules/hudkit-core/lib/Widget")
-},{"classkit":26,"domutil":27,"fs":33}],22:[function(require,module,exports){
+}).call(this,"/../node_modules/hudkit/lib/Widget")
+},{"classkit":24,"domutil":27,"fs":33}],20:[function(require,module,exports){
 module.exports = {};
-},{}],23:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 var signals = require('./signals');
 
 module.exports = {
@@ -2589,7 +2462,7 @@ function widgets() {
 	return widgetMap;
 }
 
-},{"./signals":24}],24:[function(require,module,exports){
+},{"./signals":22}],22:[function(require,module,exports){
 var signal = require('signalkit');
 
 function s(signalName) {
@@ -2598,7 +2471,7 @@ function s(signalName) {
 
 s('moduleRegistered');
 s('widgetRegistered');
-},{"signalkit":32}],25:[function(require,module,exports){
+},{"signalkit":30}],23:[function(require,module,exports){
 // TODO: this is eventually to be handled by Unwise,
 // with live updating when themes change.
 
@@ -2627,6 +2500,9 @@ var theme = {
     'HK_TAB_BORDER_RADIUS'          : '5px',
     'HK_TAB_BACKGROUND_COLOR'       : '#67748C',
 
+    // $HK_TAB_HEIGHT + $HK_TAB_SPACING
+    'HK_TAB_CONTAINER_TOP'          : '31px',
+
     'HK_BLOCK_BORDER_RADIUS'        : '10px',
 
     'HK_TOOLBAR_HEIGHT'             : '18px',
@@ -2652,7 +2528,7 @@ module.exports = {
     }
 };
 
-},{}],26:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 function Class() {};
   
 Class.prototype.method = function(name) {
@@ -2696,150 +2572,153 @@ Class.Features = {
 
 exports.Class = Class;
 
-},{}],27:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
+exports.hasClass = hasClass;
+exports.addClass = addClass;
+exports.removeClass = removeClass;
+exports.toggleClass = toggleClass;
+
+function hasClass(el, className) {
+    return el.classList.contains(className);
+}
+
+function addClass(el, classes) {
+    if (classes.indexOf(' ') >= 0) {
+        classes.split(/\s+/).forEach(function(c) {
+            el.classList.add(c);
+        });
+    } else {
+        el.classList.add(classes);
+    }
+}
+
+function removeClass(el, classes) {
+    if (classes.indexOf(' ') >= 0) {
+        classes.split(/\s+/).forEach(function(c) {
+            el.classList.remove(c);
+        });
+    } else {
+        el.classList.remove(classes);
+    }
+}
+
+function toggleClass(el, classes) {
+    if (classes.indexOf(' ') >= 0) {
+        classes.split(/\s+/).forEach(function(c) {
+            el.classList.toggle(c);
+        });
+    } else {
+        el.classList.toggle(classes);
+    }
+}
+},{}],26:[function(require,module,exports){
+exports.hasClass = hasClass;
+exports.addClass = addClass;
+exports.removeClass = removeClass;
+exports.toggleClass = toggleClass;
+
 // Constants from jQuery
 var rclass = /[\t\r\n]/g;
 var core_rnotwhite = /\S+/g;
 
-var DataStore         = {},
-    kDataStoreNextIx  = 1,
-    kDataKey          = 'du-data-key';
+// from jQuery
+function hasClass(ele, className) {
+    className = " " + className + " ";
+    return (" " + ele.className + " ").replace(rclass, " ").indexOf(className) >= 0;
+}
 
-var __window = typeof window === 'undefined'
-                ? null
-                : window;
+function addClass(ele, value) {
+  console.log(arguments);
+    var classes = (value || "").match(core_rnotwhite) || [],
+            cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
 
-var __document = typeof document === 'undefined'
-                  ? null
-                  : document;
+    if (cur) {
+        var j = 0, clazz;
+        while ((clazz = classes[j++])) {
+            if (cur.indexOf(" " + clazz + " ") < 0) {
+                cur += clazz + " ";
+            }
+        }
+        ele.className = cur.trim();
+    }
+}
 
-function generateElementKey() {
-  return kDataStoreNextIx++;
+function removeClass(ele, value) {
+    var classes = (value || "").match(core_rnotwhite) || [],
+            cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
+
+    if (cur) {
+        var j = 0, clazz;
+        while ((clazz = classes[j++])) {
+            while (cur.indexOf(" " + clazz + " ") >= 0) {
+                cur = cur.replace(" " + clazz + " ", " ");
+            }
+            ele.className = value ? cur.trim() : "";
+        }
+    }
+}
+
+function toggleClass(ele, value) {
+    var classes = (value || "").match(core_rnotwhite) || [],
+            cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
+
+    if (cur) {
+        var j = 0, clazz;
+        while ((clazz = classes[j++])) {
+            var removeCount = 0;
+            while (cur.indexOf(" " + clazz + " ") >= 0) {
+                cur = cur.replace(" " + clazz + " ", " ");
+                removeCount++;
+            }
+            if (removeCount === 0) {
+                cur += clazz + " ";
+            }
+            ele.className = cur.trim();
+        }
+    }
+}
+},{}],27:[function(require,module,exports){
+var clazz;
+
+if (typeof DOMTokenList !== 'undefined') {
+    clazz = require('./impl/classes-classlist.js');
+} else {
+    clazz = require('./impl/classes-string.js');
 }
 
 module.exports = {
-  init: function(window, document) {
-    __window = window;
-    __document = document;
-  },
+    hasClass: clazz.hasClass,
+    addClass: clazz.addClass,
+    removeClass: clazz.removeClass,
+    toggleClass: clazz.toggleClass,
 
-  data: function(el, key, val) {
-    var elementKey = el.getAttribute(kDataKey);
-    if (!elementKey) {
-      elementKey = generateElementKey();
-      el.setAttribute(kDataKey, elementKey);
+    viewportSize: function(doc) {
+        return {
+            width: doc.documentElement.clientWidth,
+            height: doc.documentElement.clientHeight
+        };
+    },
+
+    stop: function(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    },
+
+    setPosition: function(el, x, y) {
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+    },
+
+    setSize: function(width, height) {
+        el.style.width = width + 'px';
+        el.style.height = height + 'px';
+    },
+
+    isElement: function(el) {
+        return el && el.nodeType === 1;
     }
-
-    var elementData = DataStore[elementKey];
-    
-    if (arguments.length === 2) {
-      if (typeof key === 'undefined') {
-        delete DataStore[elementKey];
-      } else {
-        return elementData ? elementData[key] : undefined;
-      }
-    } else if (arguments.length === 3) {
-      if (typeof val === 'undefined') {
-        if (elementData) {
-          delete elementData[key];
-        }
-      } else {
-        if (!elementData) {
-          elementData = {};
-          DataStore[elementKey] = elementData;
-        }
-        elementData[key] = val;
-      }
-    } else {
-      throw "data() - invalid arguments";
-    }
-  },
-
-  // from jQuery
-  hasClass: function(ele, className) {
-    className = " " + className + " ";
-    return (" " + ele.className + " ").replace(rclass, " ").indexOf(className) >= 0;
-  },
-
-  // from jQuery
-  addClass: function(ele, value) {
-    var classes = (value || "").match(core_rnotwhite) || [],
-        cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
-
-    if (cur) {
-      var j = 0, clazz;
-      while ((clazz = classes[j++])) {
-        if (cur.indexOf(" " + clazz + " ") < 0) {
-          cur += clazz + " ";
-        }
-      }
-      ele.className = cur.trim();
-    }
-  },
-
-  // from jQuery
-  removeClass: function(ele, value) {
-    var classes = (value || "").match(core_rnotwhite) || [],
-        cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
-
-    if (cur) {
-      var j = 0, clazz;
-      while ((clazz = classes[j++])) {
-        while (cur.indexOf(" " + clazz + " ") >= 0) {
-          cur = cur.replace(" " + clazz + " ", " ");
-        }
-        ele.className = value ? cur.trim() : "";
-      }
-    }
-  },
-
-  toggleClass: function(ele, value) {
-    var classes = (value || "").match(core_rnotwhite) || [],
-        cur = ele.className ? (" " + ele.className + " ").replace(rclass, " ") : " ";
-
-    if (cur) {
-      var j = 0, clazz;
-      while ((clazz = classes[j++])) {
-        var removeCount = 0;
-        while (cur.indexOf(" " + clazz + " ") >= 0) {
-          cur = cur.replace(" " + clazz + " ", " ");
-          removeCount++;
-        }
-        if (removeCount === 0) {
-          cur += clazz + " ";
-        }
-        ele.className = cur.trim();
-      }
-    }
-  },
-
-  viewportSize: function() {
-    return {
-      width: __document.documentElement.clientWidth,
-      height: __document.documentElement.clientHeight
-    };
-  },
-
-  stop: function(evt) {
-    evt.preventDefault();
-    evt.stopPropagation();
-  },
-
-  setPosition: function(el, x, y) {
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-  },
-
-  setSize: function(width, height) {
-    el.style.width = width + 'px';
-    el.style.height = height + 'px';
-  },
-
-  isElement: function(el) {
-    return el && el.nodeType === 1;
-  }
 };
-},{}],28:[function(require,module,exports){
+},{"./impl/classes-classlist.js":25,"./impl/classes-string.js":26}],28:[function(require,module,exports){
 var signal = require('signalkit');
 
 var ActionProto = Object.create(Function.prototype);
@@ -2879,92 +2758,7 @@ module.exports = function(fn, opts) {
 
 }
 
-},{"signalkit":32}],29:[function(require,module,exports){
-// adapted from
-// http://stackoverflow.com/questions/524696/how-to-create-a-style-tag-with-javascript
-module.exports = function(doc, initialCss) {
-    
-    if (typeof doc === 'string') {
-        initialCss = doc;
-        doc = null;
-    }
-
-    doc = doc || document;
-
-    var head    = doc.getElementsByTagName('head')[0],
-        style   = doc.createElement('style');
-
-    style.type = 'text/css';
-    head.appendChild(style);
-
-    function set(css) {
-        css = '' + (css || '');
-        if (style.styleSheet) {
-            style.styleSheet.cssText = css;
-        } else {
-            while (style.childNodes.length) {
-                style.removeChild(style.firstChild);
-            }
-            style.appendChild(doc.createTextNode(css));
-        }
-    }
-
-    set(initialCss || '');
-
-    set.el = style;
-    set.destroy = function() {
-        head.removeChild(style);
-    }
-
-    return set;
-
-}
-},{}],30:[function(require,module,exports){
-// [a] => [a,a,a,a]
-// [a,b] => [a,b,a,b]
-// [a,b,c] => [a,b,c,b]
-// [a,b,c,d] => [a,b,c,d]
-// a => [(int)a, (int)a, (int)a, (int)a]
-module.exports = function(thing) {
-    if (Array.isArray(thing)) {
-        switch (thing.length) {
-            case 1:
-                return [
-                    parseInt(thing[0], 10),
-                    parseInt(thing[0], 10),
-                    parseInt(thing[0], 10),
-                    parseInt(thing[0], 10)
-                ];
-            case 2:
-                return [
-                    parseInt(thing[0], 10),
-                    parseInt(thing[1], 10),
-                    parseInt(thing[0], 10),
-                    parseInt(thing[1], 10)
-                ];
-            case 3:
-                return [
-                    parseInt(thing[0], 10),
-                    parseInt(thing[1], 10),
-                    parseInt(thing[2], 10),
-                    parseInt(thing[1], 10)
-                ];
-            case 4:
-                return [
-                    parseInt(thing[0], 10),
-                    parseInt(thing[1], 10),
-                    parseInt(thing[2], 10),
-                    parseInt(thing[3], 10)
-                ];
-            default:
-                throw new Error("trbl - array must have 1-4 elements");
-        }
-    } else {
-        var val = parseInt(thing);
-        return [val, val, val, val];
-    }
-}
-},{}],31:[function(require,module,exports){
+},{"signalkit":30}],29:[function(require,module,exports){
 var activeCapture = null;
 
 function createOverlay() {
@@ -3013,7 +2807,7 @@ exports.stopCapture = function() {
     }
 }
 
-},{}],32:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 (function (process){//
 // Helpers
 
@@ -3084,7 +2878,92 @@ Signal.prototype.clear = function() {
 
 module.exports = function(name) { return new Signal(name); }
 module.exports.Signal = Signal;}).call(this,require("/usr/local/lib/node_modules/watchify/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js"))
-},{"/usr/local/lib/node_modules/watchify/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":34}],33:[function(require,module,exports){
+},{"/usr/local/lib/node_modules/watchify/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":34}],31:[function(require,module,exports){
+// adapted from
+// http://stackoverflow.com/questions/524696/how-to-create-a-style-tag-with-javascript
+module.exports = function(doc, initialCss) {
+    
+    if (typeof doc === 'string') {
+        initialCss = doc;
+        doc = null;
+    }
+
+    doc = doc || document;
+
+    var head    = doc.getElementsByTagName('head')[0],
+        style   = doc.createElement('style');
+
+    style.type = 'text/css';
+    head.appendChild(style);
+
+    function set(css) {
+        css = '' + (css || '');
+        if (style.styleSheet) {
+            style.styleSheet.cssText = css;
+        } else {
+            while (style.childNodes.length) {
+                style.removeChild(style.firstChild);
+            }
+            style.appendChild(doc.createTextNode(css));
+        }
+    }
+
+    set(initialCss || '');
+
+    set.el = style;
+    set.destroy = function() {
+        head.removeChild(style);
+    }
+
+    return set;
+
+}
+},{}],32:[function(require,module,exports){
+// [a] => [a,a,a,a]
+// [a,b] => [a,b,a,b]
+// [a,b,c] => [a,b,c,b]
+// [a,b,c,d] => [a,b,c,d]
+// a => [(int)a, (int)a, (int)a, (int)a]
+module.exports = function(thing) {
+    if (Array.isArray(thing)) {
+        switch (thing.length) {
+            case 1:
+                return [
+                    parseInt(thing[0], 10),
+                    parseInt(thing[0], 10),
+                    parseInt(thing[0], 10),
+                    parseInt(thing[0], 10)
+                ];
+            case 2:
+                return [
+                    parseInt(thing[0], 10),
+                    parseInt(thing[1], 10),
+                    parseInt(thing[0], 10),
+                    parseInt(thing[1], 10)
+                ];
+            case 3:
+                return [
+                    parseInt(thing[0], 10),
+                    parseInt(thing[1], 10),
+                    parseInt(thing[2], 10),
+                    parseInt(thing[1], 10)
+                ];
+            case 4:
+                return [
+                    parseInt(thing[0], 10),
+                    parseInt(thing[1], 10),
+                    parseInt(thing[2], 10),
+                    parseInt(thing[3], 10)
+                ];
+            default:
+                throw new Error("trbl - array must have 1-4 elements");
+        }
+    } else {
+        var val = parseInt(thing);
+        return [val, val, val, val];
+    }
+}
+},{}],33:[function(require,module,exports){
 
 },{}],34:[function(require,module,exports){
 // shim for using process in browser
