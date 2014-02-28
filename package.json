@@ -1,6 +1,6 @@
 {
   "name": "hudkit-layouts",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "A collection of predefined application layouts for hudkit",
   "main": "index.js",
   "repository": "git@github.com:jaz303/hudkit-layouts.git",
