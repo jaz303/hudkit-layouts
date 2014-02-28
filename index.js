@@ -3,7 +3,7 @@ function maybeNumber(value, defaultValue) {
 }
 
 function box(hk) {
-    var box = new hk.Box();
+    var box = hk.box();
     box.setBackgroundColor('#404040');
     return box;
 }
@@ -14,7 +14,7 @@ function isWidget(object) {
 
 function create(hk, thing) {
     if (typeof thing === 'string') {
-        return new hk[thing]();
+        return hk[thing]();
     } else if (typeof thing === 'function') {
         return thing(hk);
     } else if (isWidget(thing)) {
@@ -28,7 +28,7 @@ function s2(hk, orientation, options) {
 
     options = options || {};
 
-    var split = new hk.SplitPane();
+    var split = hk.splitPane();
     split.setOrientation(orientation);
     split.setSplit('split' in options ? options.split : 0.5);
 
@@ -55,7 +55,7 @@ function s2(hk, orientation, options) {
         
     }
 
-    if (orientation === hk.SPLIT_PANE_VERTICAL) {
+    if (orientation === hk.k.SPLIT_PANE_VERTICAL) {
         split.setLeftWidget(makeWidget(options.left, 'left'));
         split.setRightWidget(makeWidget(options.right, 'right'));
     } else {
@@ -73,12 +73,12 @@ function s2(hk, orientation, options) {
 
 // vertical split with two panes
 exports.v2 = function(hk, options) {
-    return s2(hk, hk.SPLIT_PANE_VERTICAL, options);
+    return s2(hk, hk.k.SPLIT_PANE_VERTICAL, options);
 }
 
 // horizontal split with two panes
 exports.h2 = function(hk, options) {
-    return s2(hk, hk.SPLIT_PANE_HORIZONTAL, options);
+    return s2(hk, hk.k.SPLIT_PANE_HORIZONTAL, options);
 }
 
 // horizontal split, canvas at top, console at bottom
@@ -87,8 +87,8 @@ exports.canvasAndConsole = function(hk, options) {
     options = options || {};
 
     var layout = exports.h2(hk, {
-        top     : {widget: 'Canvas2D', id: 'canvas'},
-        bottom  : {widget: 'Console', id: 'console'},
+        top     : {widget: 'canvas2D', id: 'canvas'},
+        bottom  : {widget: 'console', id: 'console'},
         split   : maybeNumber(options.split, 0.7)
     });
     
@@ -103,8 +103,8 @@ exports.canvasAndTabs = function(hk, options) {
     options = options || {};
 
     var layout = exports.h2(hk, {
-        top     : {widget: 'Canvas2D', id: 'canvas'},
-        bottom  : {widget: 'TabPane', id: 'tabPane'},
+        top     : {widget: 'canvas2D', id: 'canvas'},
+        bottom  : {widget: 'tabPane', id: 'tabPane'},
         split   : maybeNumber(options.split, 0.7)
     });
 

@@ -1,22 +1,20 @@
 <html>
 <head>
   <title>canvasAndTabs</title>
-  <link rel='stylesheet' href='assets/hudkit.css'>
   <script src='bundle.js'></script>
   <script>
     function init() {
-      hk.init();
       var layout = hl.canvasAndTabs(hk, {
         tabs: [
-          {title: 'Console', widget: 'Console', id: 'console'},
-          {title: 'Log', widget: 'Console', id: 'log'}
+          {title: 'Console', widget: 'console', id: 'console'},
+          {title: 'Log', widget: 'console', id: 'log'}
         ]
       });
       console.log(layout);
     }
   </script>
 </head>
-<body onload='init();'>
+<body onload='hkinit(); init();'>
 
 </body>
 </html>
