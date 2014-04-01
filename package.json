@@ -15,7 +15,6 @@
     "hudkit": "~0.8.0"
   },
   "devDependencies": {
-    "hudkit": "~0.8.0",
-    "brfs": "~1.0.0"
+    "hudkit": "~0.8.0"
   }
 }
