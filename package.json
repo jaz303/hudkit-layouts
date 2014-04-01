@@ -12,10 +12,10 @@
   "author": "Jason Frame <jason@onehackoranother.com> (http://jasonframe.co.uk)",
   "license": "MIT",
   "peerDependencies": {
-    "hudkit": "~0.3.1"
+    "hudkit": "~0.8.0"
   },
   "devDependencies": {
-    "hudkit": "~0.3.1",
+    "hudkit": "~0.8.0",
     "brfs": "~1.0.0"
   }
 }
