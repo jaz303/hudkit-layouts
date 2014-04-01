@@ -12,9 +12,9 @@
   "author": "Jason Frame <jason@onehackoranother.com> (http://jasonframe.co.uk)",
   "license": "MIT",
   "peerDependencies": {
-    "hudkit": "~0.8.0"
+    "hudkit": "~0.8.1"
   },
   "devDependencies": {
-    "hudkit": "~0.8.0"
+    "hudkit": "~0.8.1"
   }
 }
